@@ -1,4 +1,4 @@
-# NonParamatrics-Project-1
+# NonParamatrics-Project-2
 Topic 1
 Introduction
 With the case of the first topic, we will be exploring four different methods of washing hands and comparing how well they eliminate bacteria. 
