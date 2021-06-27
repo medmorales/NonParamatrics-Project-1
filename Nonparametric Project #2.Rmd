@@ -1,0 +1,230 @@
+---
+title: "Nonparamtric Project #2"
+author: "Miguel Morales"
+date: "3/29/2021"
+output: html_document
+---
+
+
+## Introduction:
+  With the case of the first topic, we will be exploring the differences between how each soap can eliminate bacteria. This test was conducted by the subject testing four different types of washing her hands: Washing with water only, washing with regular soap, washing with antibacterial soap, and spraying hands with antibacterial spray. Each day one of these was chosen at random in the morning.After she placed her right hand on a sterile media plate designed to promote bacterial growth. Each plate was incubated for two days at 36 degrees celsius. This process took place over a month and the data was collected and given to us. 
+
+## Summary
+
+```{r, echo=FALSE, warning=FALSE}
+library(coin)
+bacteria <- read.csv("~/Downloads/bacterial.csv")
+data <- bacteria
+data
+newdata <- data[order(data$Method),]
+```
+
+
+```{r, echo=FALSE, warning=FALSE}
+library(ggplot2)
+boxplot(Bacterial.Counts ~ Method, data = newdata, main = "Distribution for each Method", horizontal = TRUE)
+```
+
+  First we started with doing a box plot to get an idea of how the data looked for each method in the dataset. We found that Alcohol Spray, Antibacterial Soap, and Water were skewed slightly to the right. With the Soap method there was a clear out leir in the data collected from that method. Overall, this data is fairly well represented and doesn't seem to require any special tests to be used. 
+
+```{r, echo=FALSE,warning=FALSE}
+summary(newdata)
+```
+
+  With the summary statistics above we can see a wide range of Bacterial Counts ranging from 5 up to 207. The 207 entry is obviously our outlier in the Soap method, but these summary statistics give us a good indication that most of the data is within the 1st and 3rd quartile. 
+For testing these methods we decided to use a null hypothesis and null alternative to determine if there is a difference in the methods. 
+
+  The null hypothesis for this dataset is, that there is no difference in the means of each method and therefore all methods result in the same amount of bacterial growth. 
+  
+  The alternative hypothesis for this same dataset is that the each procedure has a different mean and therefore can be more or less effective compared to the other methods. 
+  
+In addition, each test will use the alpha value of 0.05 or 95%.
+
+## Analysis
+```{r, echo=FALSE, warning=FALSE}
+the.test = kruskal_test(Bacterial.Counts ~ as.factor(Method), data = bacteria)
+the.test
+```
+
+  We chose to use the Kruskal test as, it will compare multiple methods in a single dataset and rather calculating each p-value individually. Additionally, the out lair does not have any impact on the Kruskall test. Lastly, since the p-value is 0.003144, this is lower than the alpha value we set earlier at 0.05. As a result, we can accept the null hypothesis that the means are different in each method. As for the chi-squared value, we are not worried about that value but it was given to us as 13.832 with the degrees of freedom to be at 3. 
+
+
+```{r, echo=FALSE, warning=FALSE}
+
+F.obs = summary(lm(Bacterial.Counts ~ Method, bacterial))$fstatistic["value"]
+R =3000
+R.perms = sapply(1:R,function(i){
+  the.data = bacterial
+  the.data$Method = sample(the.data$Method,length(the.data$Method),replace = FALSE)
+  FR = summary(lm(Bacterial.Counts ~ Method, the.data))$fstatistic["value"]
+  return(FR)
+  })
+p.value = mean(R.perms >= F.obs)
+p.value
+
+approxkw<-kruskal_test(Bacterial.Counts ~ Method, data = bacterial, distribution = approximate(nresample = 3000))
+approxkw
+```
+
+Above we used the same Kruskall-Wallis test but this time with 3,000 permutations. 
+
+```{r, echo=FALSE, warning=FALSE}
+alpha =0.05
+R = 3000
+R.perms = sapply(1:R,function(i){
+  permute.data =  bacteria
+  permute.data$Method = sample(permute.data$Method,length(permute.data$Method),replace = FALSE)
+  Ri = aggregate(Bacterial.Counts ~ Method, data = permute.data, mean)$Bacterial.Counts
+  all.diff = as.numeric(dist(Ri,method = "manhattan"))
+  max.diff = max(all.diff)
+  return(max.diff)
+})
+tukey.cutoff = quantile(R.perms,1-0.05)
+tukey.cutoff
+
+```
+
+  The last test we will use is Tukey's to find the cutoff at 95% confidence. 
+```{r}
+
+bacterial$Rank = rank(bacterial$Bacterial.Counts, ties = "average")
+
+Group.order = aggregate(Bacterial.Counts ~ Method, data = bacterial, mean)$Method
+Ri = aggregate(Rank ~ Method, data = bacterial, mean)$Rank
+#Ri
+SR.2 = var(bacterial$Rank)
+#SR.2
+
+all.diff = as.numeric(dist(Ri,method = "manhattan"))
+names(all.diff) = c("I vs II","I vs III","I vs IIII","II vs III","II vs IIII", "III vs IIII")
+
+all.diff
+
+SR.2 = var(bacterial$Rank)
+K = length(unique(bacterial$Method))
+alpha = 0.05
+g = K*(K-1)/2
+BON12 = qnorm(1-alpha/(2*g))*sqrt(SR.2*(1/ni[1] + 1/ni[2]))
+BON13 = qnorm(1-alpha/(2*g))*sqrt(SR.2*(1/ni[1] + 1/ni[3]))
+BON23 = qnorm(1-alpha/(2*g))*sqrt(SR.2*(1/ni[2] + 1/ni[3]))
+all.BON = c(BON12, BON13, BON23)
+
+HSD12 = qtukey(1-alpha,K,N-K)*sqrt((SR.2/2)*(1/ni[1] + 1/ni[2]))
+HSD13 = qtukey(1-alpha,K,N-K)*sqrt((SR.2/2)*(1/ni[1] + 1/ni[3]))
+HSD23 = qtukey(1-alpha,K,N-K)*sqrt((SR.2/2)*(1/ni[2] + 1/ni[3]))
+all.HSD = c(HSD12,HSD13,HSD23)
+
+all.crits = rbind(all.diff,all.BON,all.HSD)
+all.crits
+```
+
+
+## Interpretation
+
+  With the p-value at 0.003144 and the alpha value is 0.05, we can conclude that the methods have their own means are not all equally effective. With that being said, we saw that each method does offer a different mean and based on the box plot we saw earlier. Additionally, we ran the same test based on 3,000 replicates to see how the p value would change. 
+
+  Additionally we choose to use the same Kruskal Wallis test but this time permutation the data 3,000 times. We ran this test because the dataset as a whole was rather small so we ran the permutation test to see how the results from earlier would change. We ended up with a same chi-squared value and the same degrees of freedom. However, in the time we ran this test the p-value generated was 0.0006667. The largest value that we received from running this test was 0.001 which still satisfies the earlier statement. We expected this change because, the permutations does mean sometimes we run this program, the p-value will change. However, the p-value is still lower than the alpha value we set earlier so our earlier conclusion stands. 
+
+  Lastly, the Tukey's HSD cutoff test we saw earlier, it generated a value of 144.7589 at the time we ran the program. Similar to the permutation we just mentioned this test also will have a slightly varying value due to the nature of the test. What this value tells us is that the approximate cutoff for this data is 144.7589 with 95% confidence. Considering earlier in the report we saw that the 3rd quartile was 109 and the max value was 207. This confirms that our result from Tukey's HSD is fair when taking into consideration that the 207 value is an outlier. There were some assumptions that needed to be made in order to conduct this test. One assumption made was that each method has a significantly different average rank. 
+
+## Conclusion
+  
+  From this dataset we aimed to see if there was any difference in the 4 washing methods that are given to us in this dataset. To distinguish the difference in them, we looked at their mean values and decided to test the dataset based on that. The Kruskal Wallis test was used to find the p-value of the dataset as a whole and our suspensions were correct. The mean value of each method was indeed different with the alpha value being 0.05. Additionally, we then ran a permutation test to see how the values would change over 3,000 permutations. Again, our assumptions held true and the chi-squared value did not change. However, the p-value did change which is expected due to the nature of this test. Overall, we can see there are some differences in the values from the four methods in the dataset and by using the Kruskall-Wallis test we verified this. Additionally, with the boxplot we showed earlier it made a clear distinction that the alcohol spray had the lowest mean value, and the lowest value in the whole dataset. 
+  
+  
+  
+  
+  
+```{r}
+alpha =0.05
+R = 3000
+R.perms = sapply(1:R,function(i){
+  permute.data =  bacteria
+  permute.data$Method = sample(permute.data$Method,length(permute.data$Method),replace = FALSE)
+  Ri = aggregate(Bacterial.Counts ~ Method, data = permute.data, mean)$Bacterial.Counts
+  all.diff = as.numeric(dist(Ri,method = "manhattan"))
+  max.diff = max(all.diff)
+  return(max.diff)
+})
+tukey.cutoff = quantile(R.perms,1-0.05)
+tukey.cutoff
+```
+
+```{r}
+tuksplit.groups = split(bacterial,bacterial$Method) #Makes a list of K groups (in alphabetical order)
+one.two = rbind(tuksplit.groups[[1]],tuksplit.groups[[2]]) #Binds 1 and 2 
+one.three = rbind(tuksplit.groups[[1]],tuksplit.groups[[3]]) #Binds 1 and 3 
+one.four = rbind(tuksplit.groups[[1]],tuksplit.groups[[4]]) #Binds 1 and 4
+two.three = rbind(tuksplit.groups[[2]],tuksplit.groups[[3]]) #Binds 2 and 3
+two.four = rbind(tuksplit.groups[[2]],tuksplit.groups[[4]]) #Binds 2 and 4
+three.four = rbind(tuksplit.groups[[3]],tuksplit.groups[[4]]) #Binds 3 and 4
+
+pval12 = pvalue(wilcox_test(Bacterial.Counts ~ Method, data = one.two))
+pval13 = pvalue(wilcox_test(Bacterial.Counts ~ Method, data = one.three))
+pval14 = pvalue(wilcox_test(Bacterial.Counts ~ Method, data = one.four))
+pval23 = pvalue(wilcox_test(Bacterial.Counts ~ Method, data = two.three))
+pval24 = pvalue(wilcox_test(Bacterial.Counts ~ Method, data = two.four))
+pval34 = pvalue(wilcox_test(Bacterial.Counts ~ Method, data = three.four))
+comp.names  = c("I vs II","I vs III","I vs IIII","II vs III","II vs IIII", "III vs IIII")
+all.pvalues = c(pval12,pval13,pval14,pval23,pval24,pval34)
+names(all.pvalues) = comp.names
+
+Xb = aggregate(Bacterial.Counts ~ Method,bacterial, mean)$Bacterial.Counts
+
+all.diff = as.numeric(dist(Xb,method = "manhattan"))
+names(all.diff) = comp.names
+
+
+all.pvals = matrix(all.pvalues, nrow = 1)
+rownames(all.pvals) = "WRS p-value"
+colnames(all.pvals) = comp.names
+all.pvals
+
+all.diff = matrix(all.diff, nrow = 1)
+rownames(all.diff) = "Pairwise Diff"
+colnames(all.diff) = comp.names
+all.diff
+
+
+```{r}
+library(coin)
+mind<- read.csv("~/Downloads/Mind.csv")
+head(mind)
+
+table(mind)
+
+chisq_test(Improve~Treatment, mind, distribution = approximate(nresample = 5000))
+
+n = sum(table(mind))
+ni. = rowSums(table(mind))
+n.j = colSums(table(mind))
+all.pjG1 = table(mind)[1,]/ni.[1] #all conditional probabilites for row 1
+all.pjG2= table(mind)[2,]/ni.[2] #all conditional probabilites for row 2
+all.pbar = n.j/n #all probabilities regardless of group
+all.Zij = c(all.pjG1 - all.pjG2)/sqrt(all.pbar*(1-all.pbar)*(1/ni.[1] + 1/ni.[2])) #The z-test-statistics
+R <- 5000
+r.perms.cutoff = sapply(1:R,function(i){
+  perm.data = mind
+  perm.data$Treatment = sample(perm.data$Treatment,nrow(perm.data),replace = FALSE)
+  row.sum = rowSums(table(perm.data))
+  col.sum = colSums(table(perm.data))
+  all.pji = table(perm.data)[1,]/row.sum[1]
+  all.pji.= table(perm.data)[2,]/row.sum[2]
+  all.pbar = col.sum/sum(row.sum)
+  all.Zij = c(all.pji - all.pji.)/sqrt(all.pbar*(1-all.pbar)*(1/row.sum[1] + 1/row.sum[2]))
+  Q.r = max(abs(all.Zij))
+  return(Q.r)
+})
+alpha = 0.05
+cutoff.q = as.numeric(quantile(r.perms.cutoff,(1-alpha)))
+cutoff.q
+all.Zij = matrix(all.Zij,nrow=  1)
+colnames(all.Zij) = c("Major","Mild","Moderate","None")
+rownames(all.Zij) = c("Medication vs. Therapy")
+all.Zij
+
+cutoff.q = as.numeric(quantile(r.perms.cutoff,(1-alpha)))
+cutoff.q
+
+```
+
